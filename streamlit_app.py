@@ -22,7 +22,34 @@ from monitoramento_queimadas.coleta.utils_coleta import coletar_dados_inpe
 
 # Criar diretórios necessários
 for dir_path in ['output/logs', 'output/dados_brutos', 'output/dados_limpos', 'output/relatorios']:
-    os.makedirs(os.path.join(project_root, dir_path), exist_ok=True)
+    os.makedirs(dir_path, exist_ok=True)
 
-# Restante do código do streamlit_app.py
-# ...existing code...
+# Configuração de logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('output/logs/streamlit_app.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger('monitoramento_queimadas')
+
+# Configurar a página
+st.set_page_config(
+    page_title="Monitoramento de Queimadas",
+    page_icon="🔥",
+    layout="wide"
+)
+
+# Título principal
+st.title("Sistema de Monitoramento de Queimadas")
+
+# Texto explicativo
+st.markdown("""
+Este sistema monitora focos de queimadas em todo o Brasil, fornecendo visualizações 
+interativas e análises detalhadas por estado e bioma.
+""")
+
+# Placeholder para desenvolvimento
+st.info("Sistema em desenvolvimento. Versão inicial.")
