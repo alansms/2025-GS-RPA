@@ -16,9 +16,9 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(project_root)
 sys.path.append(os.path.join(project_root, "monitoramento-queimadas"))
 
-# Importar módulos do projeto
-from monitoramento-queimadas.relatorios.relatorio import main as gerar_relatorio
-from monitoramento-queimadas.coleta.utils_coleta import coletar_dados_inpe
+# Importar módulos do projeto (usando underscores ao invés de hífens)
+from monitoramento_queimadas.relatorios.relatorio import main as gerar_relatorio
+from monitoramento_queimadas.coleta.utils_coleta import coletar_dados_inpe
 
 # Criar diretórios necessários
 for dir_path in ['output/logs', 'output/dados_brutos', 'output/dados_limpos', 'output/relatorios']:
