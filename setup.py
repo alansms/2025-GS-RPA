@@ -17,7 +17,7 @@ setup(
         "streamlit-folium>=0.11.0,<1.0.0",
         "weasyprint>=58.0,<61.0",
         "python-dotenv>=0.19.0,<1.0.0",
-        "Pillow>=9.0.0,<10.0.0",
+        "Pillow>=10.0.0,<12.0.0",
         "requests>=2.28.0,<3.0.0"
     ],
 )
