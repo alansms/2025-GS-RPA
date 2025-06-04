@@ -13,6 +13,8 @@ Este projeto consiste em um sistema de monitoramento de queimadas que coleta, pr
 - Sistema de alertas para anomalias
 - Visualização geográfica dos focos
 
+![Front End](https://raw.githubusercontent.com/alansms/2025-GS-RPA/main/favicons-4/%20imag-2.png)
+
 ## 🚀 Como executar
 
 ### Localmente
