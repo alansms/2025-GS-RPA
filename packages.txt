@@ -1,10 +1,11 @@
 python3
+python3-dev
+build-essential
+python3-cffi
 libcairo2
 libpango-1.0-0
+libpangocairo-1.0-0
 libgdk-pixbuf2.0-0
 libffi-dev
 shared-mime-info
-fontconfig
-libfreetype6
-python3-dev
-build-essential
+libpangoft2-1.0-0

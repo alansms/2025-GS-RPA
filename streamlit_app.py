@@ -11,7 +11,7 @@ from glob import glob
 import folium
 from streamlit_folium import folium_static
 
-# Configuração da página Streamlit
+# Configurações do Streamlit
 st.set_page_config(
     page_title="Monitoramento de Queimadas",
     page_icon="🔥",
@@ -19,18 +19,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Configurar tema e estilos
+# Configurações de estilo para expandir a página
 st.markdown("""
     <style>
+        .reportview-container .main .block-container {
+            max-width: 95%;
+            padding-top: 2rem;
+            padding-right: 2rem;
+            padding-left: 2rem;
+            padding-bottom: 2rem;
+        }
+        .stApp > header {
+            background-color: transparent;
+        }
         .stApp {
-            max-width: 1200px;
             margin: 0 auto;
         }
-        .logo-container {
-            background-color: white;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+        .st-bx {
+            background-color: transparent;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -73,7 +79,7 @@ with st.sidebar:
     # Logo da FIAP
     st.markdown("<div class='logo-container'>", unsafe_allow_html=True)
     logo_paths = ["Fiap-logo-branco.jpg", "logo_fiap.jpg"]
-    logo_path = next((path for path in logo_paths if os.path.exists(path)), None)
+    logo_path = next((path for path if os.path.exists(path)), None)
     if logo_path:
         st.image(logo_path, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)

@@ -8,11 +8,15 @@ from jinja2 import Template
 
 logger = logging.getLogger('queimadas.relatorios')
 
-def main(df: pd.DataFrame, output_dir: str = "output/relatorios") -> str:
+def main(df: pd.DataFrame, output_dir: str = None) -> str:
     """
     Gera um relatório com as análises dos focos de queimada.
     """
     try:
+        # Usar caminho absoluto para o diretório de saída
+        if output_dir is None:
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'output', 'relatorios')
+
         # Criar diretório se não existir
         os.makedirs(output_dir, exist_ok=True)
 
