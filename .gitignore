@@ -31,3 +31,11 @@ output/relatorios/*
 !output/dados_brutos/.gitkeep
 !output/dados_limpos/.gitkeep
 !output/logs/.gitkeep
+
+# Arquivos específicos para ignorar
+*.zip
+.qodo/
+.devcontainer/
+eval "$(ssh-agent -s)"
+eval "$(ssh-agent -s)".pub
+
