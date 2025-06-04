@@ -16,11 +16,11 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 src_path = os.path.join(project_root, "src")
 sys.path.append(src_path)
 
-# Importar módulos do projeto
+# Importar módulos do projeto (agora usando os caminhos corretos)
 from coleta.utils_coleta import coletar_dados_inpe
-from relatorios.relatorio import main as gerar_relatorio
 from analise.analise_temporal import gerar_serie_temporal
 from analise.analise_espacial import criar_mapa_focos
+from relatorios.relatorio import main as gerar_relatorio
 
 # Criar diretórios necessários
 for dir_path in ['output/logs', 'output/dados_brutos', 'output/dados_limpos', 'output/relatorios']:
