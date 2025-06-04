@@ -54,6 +54,11 @@ interativas e análises detalhadas por estado e bioma.
 
 # Sidebar
 with st.sidebar:
+    # Adicionar logo da FIAP
+    logo_path = "Fiap-logo-branco.jpg"
+    if os.path.exists(logo_path):
+        st.image(logo_path, use_column_width=True)
+
     st.title("Filtros")
 
     # Data atual e período padrão
@@ -147,18 +152,70 @@ if df is not None and not df.empty:
 
     # Mapa de calor
     st.subheader("Distribuição Geográfica dos Focos")
-    mapa = folium.Map(location=[-15.7801, -47.9292], zoom_start=4)
 
-    # Adicionar clusters de pontos
+    # Criar mapa base
+    mapa = folium.Map(
+        location=[-15.7801, -47.9292],  # Centro do Brasil
+        zoom_start=4,
+        tiles='CartoDB positron'
+    )
+
+    # Criar cluster de marcadores
+    marker_cluster = folium.plugins.MarkerCluster(
+        name='Focos de Queimada',
+        overlay=True,
+        control=True,
+        options={
+            'maxClusterRadius': 30,
+            'disableClusteringAtZoom': 8
+        }
+    )
+
+    # Limites do Brasil
+    BRASIL_BOUNDS = {
+        'lat_min': -33.75,
+        'lat_max': 5.27,
+        'lon_min': -73.99,
+        'lon_max': -34.79
+    }
+
+    # Adicionar pontos ao mapa (apenas pontos válidos)
     for _, row in df.iterrows():
-        folium.CircleMarker(
-            location=[row['latitude'], row['longitude']],
-            radius=5,
-            color='red',
-            fill=True,
-            popup=f"UF: {row['uf']}<br>Bioma: {row['bioma']}"
-        ).add_to(mapa)
+        try:
+            lat, lon = float(row['latitude']), float(row['longitude'])
 
+            # Validar coordenadas
+            if (BRASIL_BOUNDS['lat_min'] <= lat <= BRASIL_BOUNDS['lat_max'] and
+                BRASIL_BOUNDS['lon_min'] <= lon <= BRASIL_BOUNDS['lon_max']):
+
+                # Criar popup informativo
+                popup_html = f"""
+                    <div style='font-family: Arial; font-size: 12px; width: 150px;'>
+                        <b>UF:</b> {row['uf']}<br>
+                        <b>Bioma:</b> {row['bioma']}<br>
+                        <b>Data:</b> {pd.to_datetime(row['data']).strftime('%d/%m/%Y')}
+                    </div>
+                """
+
+                # Adicionar marcador ao cluster
+                folium.CircleMarker(
+                    location=[lat, lon],
+                    radius=6,
+                    color='red',
+                    fill=True,
+                    fillOpacity=0.7,
+                    popup=folium.Popup(popup_html, max_width=200),
+                    weight=1
+                ).add_to(marker_cluster)
+
+        except (ValueError, TypeError):
+            continue
+
+    # Adicionar cluster e controles ao mapa
+    marker_cluster.add_to(mapa)
+    folium.LayerControl().add_to(mapa)
+
+    # Exibir mapa
     folium_static(mapa)
 
 else:
