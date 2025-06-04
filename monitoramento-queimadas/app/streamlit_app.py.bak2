@@ -1,0 +1,805 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Interface interativa em Streamlit para visualização de dados de focos de queimadas.
+
+Este script carrega automaticamente todos os arquivos CSV em output/dados_limpos,
+permite seleção de período, exibe filtros de UF e bioma, e mostra gráficos
+interativos e mapa de dispersão dos focos.
+"""
+
+import os
+import sys
+import logging
+import pandas as pd
+import numpy as np
+import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+from glob import glob
+
+# Adicionar diretório pai ao PYTHONPATH para importações
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from relatorios.relatorio import main as gerar_relatorio
+
+# Configuração de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output/logs/streamlit_app.log')),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger('monitoramento_queimadas.streamlit')
+
+# Configuração da página Streamlit com tema claro
+st.set_page_config(
+    page_title="Monitoramento de Queimadas",
+    page_icon="🔥",
+    layout="wide",
+    initial_sidebar_state="collapsed",  # Sidebar começa recolhida
+    menu_items={
+        'About': "Sistema de Monitoramento de Queimadas | FIAP"
+    }
+)
+
+# Forçar tema claro via CSS - versão corrigida para não afetar a visualização dos gráficos
+st.markdown("""
+<style>
+    /* Ajustes de cores para elementos da interface sem interferir nos gráficos */
+    .main .block-container {
+        background-color: #ffffff;
+    }
+    
+    .sidebar .sidebar-content, [data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+    }
+    
+    /* Estilos para cabeçalhos, texto e inputs */
+    h1, h2, h3, h4, h5, h6, p, span, .stMarkdown, label {
+        color: rgb(50, 50, 50) !important;
+    }
+    
+    /* Cores dos widgets de filtro */
+    div.stNumberInput > div, 
+    div.stSelectbox > div, 
+    div.stMultiSelect > div, 
+    div.stDateInput > div {
+        background-color: white !important;
+        border: 1px solid #cccccc !important;
+        color: rgb(50, 50, 50) !important;
+    }
+    
+    /* Menus dropdown */
+    div[data-baseweb="popover"] div[role="listbox"],
+    div[data-baseweb="select"] ul,
+    div[data-baseweb="menu"],
+    div[role="menu"] {
+        background-color: white !important;
+        color: rgb(50, 50, 50) !important;
+        border: 1px solid #eee !important;
+    }
+    
+    /* Melhorando a visualização de tabelas */
+    .dataframe {
+        color: #000000;
+        background-color: #ffffff;
+    }
+    
+    /* Estilização dos alertas */
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+    }
+    
+    .alert-info {
+        color: #0c5460;
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+    }
+    
+    .alert-warning {
+        color: #856404;
+        background-color: #fff3cd;
+        border-color: #ffeeba;
+    }
+    
+    .alert-danger {
+        color: #721c24;
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+    }
+    
+    /* Ajustando elementos de interface específicos do Streamlit */
+    .stButton button {
+        background-color: #1d3557;
+        color: white;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Função para exibir alertas personalizados
+def exibir_alerta(mensagem, tipo="info"):
+    """
+    Exibe um alerta personalizado e estilizado.
+
+    Args:
+        mensagem (str): Mensagem a ser exibida.
+        tipo (str): Tipo de alerta ('info', 'warning', 'danger').
+    """
+    if tipo not in ["info", "warning", "danger"]:
+        tipo = "info"
+
+    html = f"""
+    <div class="alert alert-{tipo}">
+        {mensagem}
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+# Função para carregar dados
+@st.cache_data(ttl=3600)  # Cache por 1 hora
+def carregar_dados(diretorio='output/dados_limpos'):
+    """
+    Carrega todos os arquivos CSV do diretório especificado.
+    
+    Args:
+        diretorio (str): Diretório contendo os arquivos CSV.
+    
+    Returns:
+        pandas.DataFrame: DataFrame com todos os dados carregados.
+    """
+    try:
+        # Construir caminho absoluto para o diretório
+        caminho_base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        caminho_absoluto = os.path.join(caminho_base, diretorio)
+
+        # Listar arquivos CSV no diretório
+        arquivos_csv = glob(os.path.join(caminho_absoluto, '*.csv'))
+
+        if not arquivos_csv:
+            exibir_alerta(f"Nenhum arquivo CSV encontrado em {diretorio}", tipo="danger")
+            logger.error(f"Nenhum arquivo CSV encontrado em {caminho_absoluto}")
+            return None
+        
+        logger.info(f"Carregando {len(arquivos_csv)} arquivos CSV")
+        
+        # Lista para armazenar DataFrames
+        dfs = []
+        
+        # Carregar cada arquivo
+        for arquivo in arquivos_csv:
+            try:
+                df = pd.read_csv(arquivo)
+                
+                # Verificar se a coluna de data existe
+                if 'data' not in df.columns:
+                    logger.warning(f"Coluna 'data' não encontrada no arquivo {arquivo}. Pulando.")
+                    continue
+                
+                # Converter coluna de data para datetime
+                df['data'] = pd.to_datetime(df['data'], errors='coerce')
+                
+                # Adicionar à lista
+                dfs.append(df)
+                
+            except Exception as e:
+                logger.error(f"Erro ao carregar arquivo {arquivo}: {str(e)}")
+        
+        if not dfs:
+            exibir_alerta("Nenhum dado válido carregado", tipo="danger")
+            return None
+        
+        # Concatenar todos os DataFrames
+        df_completo = pd.concat(dfs, ignore_index=True)
+        
+        logger.info(f"Total de registros carregados: {len(df_completo)}")
+        return df_completo
+    
+    except Exception as e:
+        logger.error(f"Erro ao carregar dados: {str(e)}")
+        exibir_alerta(f"Erro ao carregar dados: {str(e)}", tipo="danger")
+        return None
+
+# Função para filtrar dados por período
+def filtrar_por_periodo(df, data_inicio, data_fim):
+    """
+    Filtra o DataFrame pelo período especificado.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame a ser filtrado.
+        data_inicio (datetime): Data inicial do período.
+        data_fim (datetime): Data final do período.
+    
+    Returns:
+        pandas.DataFrame: DataFrame filtrado.
+    """
+    if df is None:
+        return None
+    
+    try:
+        # Verificar se a coluna de data existe
+        if 'data' not in df.columns:
+            exibir_alerta("Coluna 'data' não encontrada no DataFrame", tipo="danger")
+            return df
+        
+        # Filtrar por período
+        df_filtrado = df[(df['data'] >= data_inicio) & (df['data'] <= data_fim)]
+        
+        logger.info(f"Dados filtrados por período: {len(df_filtrado)} registros")
+        return df_filtrado
+    
+    except Exception as e:
+        logger.error(f"Erro ao filtrar por período: {str(e)}")
+        st.error(f"Erro ao filtrar por período: {str(e)}")
+        return df
+
+# Função para filtrar dados por UF
+def filtrar_por_uf(df, ufs_selecionadas):
+    """
+    Filtra o DataFrame pelas UFs selecionadas.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame a ser filtrado.
+        ufs_selecionadas (list): Lista de UFs selecionadas.
+    
+    Returns:
+        pandas.DataFrame: DataFrame filtrado.
+    """
+    if df is None:
+        return None
+
+    try:
+        # Verificar se a coluna de UF existe
+        if 'uf' not in df.columns:
+            exibir_alerta("Coluna 'uf' não encontrada no DataFrame", tipo="danger")
+            return df
+
+        # Filtrar por UF apenas se houver UFs selecionadas
+        if ufs_selecionadas and len(ufs_selecionadas) > 0:
+            df_filtrado = df[df['uf'].isin(ufs_selecionadas)]
+            logger.info(f"Dados filtrados por UF: {len(df_filtrado)} registros")
+            return df_filtrado
+        else:
+            return df
+
+    except Exception as e:
+        logger.error(f"Erro ao filtrar por UF: {str(e)}")
+        st.error(f"Erro ao filtrar por UF: {str(e)}")
+        return df
+
+# Função para filtrar dados por bioma
+def filtrar_por_bioma(df, biomas_selecionados):
+    """
+    Filtra o DataFrame pelos biomas selecionados.
+
+    Args:
+        df (pandas.DataFrame): DataFrame a ser filtrado.
+        biomas_selecionados (list): Lista de biomas selecionados.
+
+    Returns:
+        pandas.DataFrame: DataFrame filtrado.
+    """
+    if df is None:
+        return None
+
+    try:
+        # Verificar se a coluna de bioma existe
+        if 'bioma' not in df.columns:
+            exibir_alerta("Coluna 'bioma' não encontrada no DataFrame", tipo="danger")
+            return df
+
+        # Filtrar por bioma
+        df_filtrado = df[df['bioma'].isin(biomas_selecionados)]
+
+        logger.info(f"Dados filtrados por bioma: {len(df_filtrado)} registros")
+        return df_filtrado
+
+    except Exception as e:
+        logger.error(f"Erro ao filtrar por bioma: {str(e)}")
+        st.error(f"Erro ao filtrar por bioma: {str(e)}")
+        return df
+
+# Função para gerar série temporal
+def gerar_serie_temporal(df):
+    """
+    Gera uma série temporal a partir do DataFrame.
+
+    Args:
+        df (pandas.DataFrame): DataFrame com dados de focos de queimadas.
+
+    Returns:
+        pandas.DataFrame: DataFrame com a série temporal de focos por dia.
+    """
+    if df is None or len(df) == 0:
+        logger.warning("Não foi possível gerar série temporal: DataFrame vazio ou nulo")
+        return None
+
+    try:
+        # Verificar se a coluna de data existe
+        if 'data' not in df.columns:
+            logger.error("Coluna 'data' não encontrada para gerar série temporal")
+            return None
+
+        # Contar focos por dia
+        serie_temporal = df.groupby(df['data'].dt.date).size().reset_index(name='focos')
+
+        # Converter para datetime novamente para facilitar a plotagem
+        serie_temporal['data'] = pd.to_datetime(serie_temporal['data'])
+
+        # Ordenar por data
+        serie_temporal = serie_temporal.sort_values('data')
+
+        logger.info(f"Série temporal gerada com {len(serie_temporal)} pontos")
+        return serie_temporal
+
+    except Exception as e:
+        logger.error(f"Erro ao gerar série temporal: {str(e)}")
+        return None
+
+# Função para contar focos por UF
+def contar_por_uf(df):
+    """
+    Conta o número de focos por UF.
+
+    Args:
+        df (pandas.DataFrame): DataFrame com dados de focos de queimadas.
+
+    Returns:
+        pandas.DataFrame: DataFrame com contagem de focos por UF.
+    """
+    if df is None or len(df) == 0:
+        logger.warning("Não foi possível contar focos por UF: DataFrame vazio ou nulo")
+        return None
+
+    try:
+        # Verificar se a coluna de UF existe
+        if 'uf' not in df.columns:
+            logger.error("Coluna 'uf' não encontrada para contar focos por UF")
+            return None
+
+        # Contar focos por UF
+        focos_por_uf = df.groupby('uf').size().reset_index(name='focos')
+
+        # Ordenar por número de focos (decrescente)
+        focos_por_uf = focos_por_uf.sort_values('focos', ascending=False)
+
+        logger.info(f"Contagem por UF gerada com {len(focos_por_uf)} UFs")
+        return focos_por_uf
+
+    except Exception as e:
+        logger.error(f"Erro ao contar focos por UF: {str(e)}")
+        return None
+
+# Função para contar focos por bioma
+def contar_por_bioma(df):
+    """
+    Conta o número de focos por bioma.
+
+    Args:
+        df (pandas.DataFrame): DataFrame com dados de focos de queimadas.
+
+    Returns:
+        pandas.DataFrame: DataFrame com contagem de focos por bioma.
+    """
+    if df is None or len(df) == 0:
+        logger.warning("Não foi possível contar focos por bioma: DataFrame vazio ou nulo")
+        return None
+
+    try:
+        # Verificar se a coluna de bioma existe
+        if 'bioma' not in df.columns:
+            logger.error("Coluna 'bioma' não encontrada para contar focos por bioma")
+            return None
+
+        # Contar focos por bioma
+        focos_por_bioma = df.groupby('bioma').size().reset_index(name='focos')
+
+        # Ordenar por número de focos (decrescente)
+        focos_por_bioma = focos_por_bioma.sort_values('focos', ascending=False)
+
+        logger.info(f"Contagem por bioma gerada com {len(focos_por_bioma)} biomas")
+        return focos_por_bioma
+
+    except Exception as e:
+        logger.error(f"Erro ao contar focos por bioma: {str(e)}")
+        return None
+
+# Função principal da aplicação
+def main():
+    """
+    Função principal que executa o fluxo da aplicação Streamlit.
+    Carrega os dados, renderiza a interface e aplica os filtros.
+    """
+    # Carregar dados
+    df = carregar_dados()
+
+    if df is not None:
+        # Adicionar logo da FIAP na sidebar
+        logo_path = "../Fiap-logo-branco.jpg"  # Caminho relativo para o novo logo com fundo branco
+        if not os.path.exists(logo_path):
+            logo_path = "/Users/alansms/CLionProjects/GS-2025-RPA/Fiap-logo-branco.jpg"  # Caminho absoluto
+
+        if os.path.exists(logo_path):
+            # Adicionar o logo com tamanho adaptativo
+            st.sidebar.image(logo_path, use_column_width=True)
+        else:
+            # Tentar usar o logo original como fallback
+            logo_path_fallback = "/Users/alansms/CLionProjects/GS-2025-RPA/logo_fiap.jpg"
+            if os.path.exists(logo_path_fallback):
+                st.sidebar.image(logo_path_fallback, use_column_width=True)
+            else:
+                st.sidebar.warning("Logo não encontrado.")
+
+        # Sidebar para filtros
+        st.sidebar.title("Filtros")
+
+        # Filtro de período
+        st.sidebar.subheader("Período")
+
+        # Determinar datas mínima e máxima
+        data_min = df['data'].min().date()
+        data_max = df['data'].max().date()
+
+        # Definir datas padrão (último mês)
+        data_padrao_fim = data_max
+        data_padrao_inicio = max(data_min, data_padrao_fim - timedelta(days=30))
+
+        # Seletores de data
+        data_inicio = st.sidebar.date_input("Data inicial", data_padrao_inicio, min_value=data_min, max_value=data_max)
+        data_fim = st.sidebar.date_input("Data final", data_padrao_fim, min_value=data_min, max_value=data_max)
+
+        # Converter para datetime
+        data_inicio = pd.Timestamp(data_inicio)
+        data_fim = pd.Timestamp(data_fim)
+
+        # Filtro de UF
+        st.sidebar.subheader("Unidades Federativas (UF)")
+
+        # Obter lista de UFs
+        if 'uf' in df.columns:
+            ufs_disponiveis = sorted(df['uf'].unique())
+            ufs_selecionadas = st.sidebar.multiselect("Selecione as UFs", ufs_disponiveis, key="multiselect_ufs")
+        else:
+            ufs_selecionadas = []
+            st.sidebar.warning("Coluna 'uf' não encontrada nos dados")
+
+        # Filtro de bioma
+        st.sidebar.subheader("Biomas")
+
+        # Obter lista de biomas
+        if 'bioma' in df.columns:
+            biomas_disponiveis = sorted(df['bioma'].unique())
+            biomas_selecionados = st.sidebar.multiselect("Selecione os biomas", biomas_disponiveis, key="multiselect_biomas")
+        else:
+            biomas_selecionados = []
+            st.sidebar.warning("Coluna 'bioma' não encontrada nos dados")
+
+        # Adicionar seção de relatórios na sidebar
+        st.sidebar.subheader("Relatórios")
+        formato_relatorio = st.sidebar.selectbox(
+            "Formato do relatório",
+            options=["PDF", "HTML"],
+            index=0
+        )
+
+        periodo_relatorio = st.sidebar.selectbox(
+            "Período do relatório",
+            options=["Dia", "Semana", "Mês", "Ano"],
+            index=2
+        )
+
+        # Botão para gerar relatório
+        if st.sidebar.button("Gerar Relatório"):
+            with st.spinner("Gerando relatório..."):
+                try:
+                    # Aplicar filtros primeiro, se ainda não tiver aplicado
+                    if 'df_filtrado' not in locals() or df_filtrado is None:
+                        df_filtrado = filtrar_por_periodo(df, data_inicio, data_fim)
+
+                        if ufs_selecionadas:
+                            df_filtrado = filtrar_por_uf(df_filtrado, ufs_selecionadas)
+
+                        if biomas_selecionados:
+                            df_filtrado = filtrar_por_bioma(df_filtrado, biomas_selecionados)
+
+                    # Gerar série temporal se ainda não existir
+                    if 'serie_temporal' not in locals() or serie_temporal is None:
+                        serie_temporal = gerar_serie_temporal(df_filtrado)
+
+                    # Gerar contagens por UF e bioma se ainda não existirem
+                    if 'focos_por_uf' not in locals() or focos_por_uf is None:
+                        focos_por_uf = contar_por_uf(df_filtrado)
+
+                    if 'focos_por_bioma' not in locals() or focos_por_bioma is None:
+                        focos_por_bioma = contar_por_bioma(df_filtrado)
+
+                    # Preparar diretório para salvar análises
+                    os.makedirs("output/dados_limpos/analises", exist_ok=True)
+
+                    # Salvar série temporal para relatório
+                    if serie_temporal is not None and not serie_temporal.empty:
+                        # Renomear coluna 'data' para 'periodo' se necessário
+                        if 'data' in serie_temporal.columns and 'periodo' not in serie_temporal.columns:
+                            serie_temporal = serie_temporal.rename(columns={'data': 'periodo'})
+
+                        serie_temporal.to_csv("output/dados_limpos/analises/serie_temporal_dia.csv", index=False)
+                    else:
+                        # Criar um substituto em caso de erro
+                        serie_temporal_fallback = pd.DataFrame({
+                            'periodo': pd.date_range(start=data_inicio, end=data_fim),
+                            'focos': [0] * (1 + (data_fim - data_inicio).days)
+                        })
+                        serie_temporal_fallback.to_csv("output/dados_limpos/analises/serie_temporal_dia.csv", index=False)
+
+                    # Salvar focos por UF para relatório
+                    if focos_por_uf is not None and not focos_por_uf.empty:
+                        # Adicionar percentual se não existir
+                        if 'percentual' not in focos_por_uf.columns:
+                            focos_por_uf['percentual'] = (focos_por_uf['focos'] / focos_por_uf['focos'].sum()) * 100
+                        focos_por_uf.to_csv("output/dados_limpos/analises/focos_por_uf.csv", index=False)
+
+                    # Salvar focos por bioma para relatório
+                    if focos_por_bioma is not None and not focos_por_bioma.empty:
+                        # Adicionar percentual se não existir
+                        if 'percentual' not in focos_por_bioma.columns:
+                            focos_por_bioma['percentual'] = (focos_por_bioma['focos'] / focos_por_bioma['focos'].sum()) * 100
+                        focos_por_bioma.to_csv("output/dados_limpos/analises/focos_por_bioma.csv", index=False)
+
+                    # Chamar função para gerar relatório
+                    caminho_relatorio = gerar_relatorio(
+                        formato=formato_relatorio.lower(),
+                        periodo=periodo_relatorio.lower(),
+                        output=None  # Usar caminho padrão
+                    )
+
+                    if caminho_relatorio:
+                        # Permitir download do relatório gerado
+                        with open(caminho_relatorio, "rb") as arquivo:
+                            nome_arquivo = os.path.basename(caminho_relatorio)
+
+                            st.sidebar.success(f"Relatório gerado com sucesso!")
+                            st.sidebar.download_button(
+                                label=f"Baixar Relatório ({formato_relatorio})",
+                                data=arquivo,
+                                file_name=nome_arquivo,
+                                mime="application/pdf" if formato_relatorio.lower() == "pdf" else "text/html"
+                            )
+                    else:
+                        st.sidebar.error("Falha ao gerar relatório. Verifique os logs para mais detalhes.")
+
+                except Exception as e:
+                    logger.error(f"Erro ao gerar relatório: {str(e)}", exc_info=True)
+                    st.sidebar.error(f"Erro ao gerar relatório: {str(e)}")
+
+        # Aplicar filtros
+        with st.spinner("Aplicando filtros..."):
+            df_filtrado = filtrar_por_periodo(df, data_inicio, data_fim)
+
+            if ufs_selecionadas:
+                df_filtrado = filtrar_por_uf(df_filtrado, ufs_selecionadas)
+
+            if biomas_selecionados:
+                df_filtrado = filtrar_por_bioma(df_filtrado, biomas_selecionados)
+
+        # Verificar se há dados após filtros
+        if df_filtrado is None or len(df_filtrado) == 0:
+            exibir_alerta("Nenhum dado encontrado para os filtros selecionados.", tipo="warning")
+            st.stop()
+
+        # Exibir informações gerais
+        st.subheader("Informações Gerais")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Total de Focos", f"{len(df_filtrado):,}")
+
+        with col2:
+            # Calcular média diária
+            dias = (data_fim - data_inicio).days + 1
+            media_diaria = len(df_filtrado) / dias if dias > 0 else 0
+            st.metric("Média Diária", f"{media_diaria:.1f}")
+
+        with col3:
+            # Determinar tendência
+            serie_temporal = gerar_serie_temporal(df_filtrado)
+            if serie_temporal is not None and len(serie_temporal) > 1:
+                primeiro_valor = serie_temporal['focos'].iloc[0]
+                ultimo_valor = serie_temporal['focos'].iloc[-1]
+
+                if ultimo_valor > primeiro_valor * 1.2:
+                    tendencia = "Crescente ↑"
+                elif ultimo_valor < primeiro_valor * 0.8:
+                    tendencia = "Decrescente ↓"
+                else:
+                    tendencia = "Estável →"
+
+                st.metric("Tendência", tendencia)
+
+        # Gráfico de linha (série temporal)
+        st.subheader("Série Temporal de Focos de Queimadas")
+
+        # Gerar série temporal
+        serie_temporal = gerar_serie_temporal(df_filtrado)
+
+        if serie_temporal is not None and not serie_temporal.empty:
+            # Criar gráfico interativo com Plotly
+            fig = px.line(
+                serie_temporal,
+                x='data',
+                y='focos',
+                title='Focos de Queimadas por Dia',
+                labels={'data': 'Data', 'focos': 'Número de Focos'},
+                line_shape='linear'
+            )
+
+            # Adicionar linha de média móvel
+            serie_temporal['media_movel'] = serie_temporal['focos'].rolling(window=7, min_periods=1).mean()
+
+            fig.add_scatter(
+                x=serie_temporal['data'],
+                y=serie_temporal['media_movel'],
+                mode='lines',
+                name='Média Móvel (7 dias)',
+                line=dict(color='red', width=2)
+            )
+
+            # Configurar layout
+            fig.update_layout(
+                xaxis_title='Data',
+                yaxis_title='Número de Focos',
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                height=500
+            )
+
+            # Exibir gráfico
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Não foi possível gerar a série temporal.")
+
+        # Criar duas colunas para os gráficos de UF e bioma
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Gráfico de barras (focos por UF)
+            st.subheader("Focos por UF")
+
+            # Contar focos por UF
+            focos_por_uf = contar_por_uf(df_filtrado)
+
+            if focos_por_uf is not None and not focos_por_uf.empty:
+                # Limitar para as 10 UFs com mais focos
+                top_ufs = focos_por_uf.head(10)
+
+                # Criar gráfico interativo com Plotly
+                fig = px.bar(
+                    top_ufs,
+                    x='uf',
+                    y='focos',
+                    title='Top 10 UFs com Mais Focos de Queimadas',
+                    labels={'uf': 'UF', 'focos': 'Número de Focos'},
+                    color='focos',
+                    color_continuous_scale='Reds',
+                    hover_data={'uf': True, 'focos': True},
+                    custom_data=['uf', 'focos']
+                )
+
+                # Configurar layout e hover template personalizado
+                fig.update_layout(
+                    xaxis_title='UF',
+                    yaxis_title='Número de Focos',
+                    coloraxis_showscale=False,
+                    height=500
+                )
+
+                # Definir formato de hover personalizado
+                fig.update_traces(
+                    hovertemplate='<b>UF:</b> %{customdata[0]}<br><b>Número de Focos:</b> %{customdata[1]:,}<extra></extra>'
+                )
+
+                # Exibir gráfico
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Não foi possível gerar o gráfico de focos por UF.")
+
+        with col2:
+            # Gráfico de pizza (focos por bioma)
+            st.subheader("Focos por Bioma")
+
+            # Contar focos por bioma
+            focos_por_bioma = contar_por_bioma(df_filtrado)
+
+            if focos_por_bioma is not None and not focos_por_bioma.empty:
+                # Criar gráfico interativo com Plotly
+                fig = px.pie(
+                    focos_por_bioma,
+                    names='bioma',
+                    values='focos',
+                    title='Distribuição de Focos de Queimadas por Bioma',
+                    color_discrete_sequence=px.colors.sequential.Reds,
+                    custom_data=['bioma', 'focos']
+                )
+
+                # Configurar layout
+                fig.update_layout(
+                    legend=dict(orientation='h', yanchor='bottom', y=-0.3, xanchor='center', x=0.5),
+                    height=500
+                )
+
+                # Definir formato de hover personalizado
+                fig.update_traces(
+                    hovertemplate='<b>Bioma:</b> %{customdata[0]}<br><b>Número de Focos:</b> %{customdata[1]:,}<extra></extra>'
+                )
+
+                # Exibir gráfico
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Não foi possível gerar o gráfico de focos por bioma.")
+
+        # Tabela resumida
+        st.subheader("Tabela Resumida")
+
+        with st.expander("Ver tabelas detalhadas"):
+            tab1, tab2 = st.tabs(["Por UF", "Por Bioma"])
+
+            with tab1:
+                if focos_por_uf is not None and not focos_por_uf.empty:
+                    # Adicionar coluna de percentual
+                    focos_por_uf['percentual'] = (focos_por_uf['focos'] / focos_por_uf['focos'].sum()) * 100
+
+                    # Exibir tabela formatada
+                    st.dataframe(
+                        focos_por_uf.style.format({
+                            'focos': '{:,}',
+                            'percentual': '{:.2f}%'
+                        }),
+                        use_container_width=True
+                    )
+                else:
+                    st.warning("Não há dados para exibir.")
+
+            with tab2:
+                if focos_por_bioma is not None and not focos_por_bioma.empty:
+                    # Adicionar coluna de percentual
+                    focos_por_bioma['percentual'] = (focos_por_bioma['focos'] / focos_por_bioma['focos'].sum()) * 100
+
+                    # Exibir tabela formatada
+                    st.dataframe(
+                        focos_por_bioma.style.format({
+                            'focos': '{:,}',
+                            'percentual': '{:.2f}%'
+                        }),
+                        use_container_width=True
+                    )
+                else:
+                    st.warning("Não há dados para exibir.")
+
+        # Mapa de dispersão
+        st.subheader("Mapa de Focos de Queimadas")
+
+        # Verificar se existem coordenadas
+        if 'latitude' in df_filtrado.columns or 'longitude' in df_filtrado.columns:
+            # Remover registros com coordenadas nulas
+            df_mapa = df_filtrado.dropna(subset=['latitude', 'longitude'])
+
+            if len(df_mapa) > 0:
+                # Limitar número de pontos para evitar sobrecarga
+                max_pontos = 5000
+                if len(df_mapa) > max_pontos:
+                    st.warning(f"Limitando a exibição para {max_pontos} pontos aleatórios (de um total de {len(df_mapa)}).")
+                    df_mapa = df_mapa.sample(max_pontos)
+
+                # Mostrar alerta com instruções
+                st.info("⚠️ **Aviso importante**: Aguarde o carregamento completo do mapa. Os pontos aparecem como círculos vermelhos grandes com borda branca.")
+
+                # Opções de estilo de mapa simplificadas
+                map_styles = {
+                    "Carto Positron (Claro)": "carto-positron",
+                    "Carto Darkmatter (Escuro)": "carto-darkmatter",
+                    "Stamen Terrain": "stamen-terrain"

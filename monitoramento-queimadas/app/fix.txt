@@ -1,0 +1,6 @@
+                # Opções de estilo de mapa simplificadas
+                map_styles = {
+                    "Carto Positron (Claro)": "carto-positron",
+                    "Carto Darkmatter (Escuro)": "carto-darkmatter",
+                    "Stamen Terrain": "stamen-terrain"
+                }

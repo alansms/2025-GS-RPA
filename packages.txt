@@ -1,0 +1,8 @@
+python@3
+cairo
+pango
+gdk-pixbuf
+libffi
+shared-mime-info
+fontconfig
+freetype

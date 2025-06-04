@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.env
+.venv
+env/
+venv/
+.env/
+ENV/
+*.so
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+cmake-build-debug/
+
+# Arquivos de log e cache
+*.log
+.cache/
+
+# Arquivos de saída e relatórios gerados
+output/dados_brutos/*
+output/dados_limpos/*
+output/logs/*
+output/relatorios/*
+!output/dados_brutos/.gitkeep
+!output/dados_limpos/.gitkeep
+!output/logs/.gitkeep

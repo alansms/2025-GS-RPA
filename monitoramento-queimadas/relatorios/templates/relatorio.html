@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Focos de Queimadas</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            color: #333; 
+        }
+        h1 { 
+            color: #d9534f; 
+            border-bottom: 2px solid #d9534f; 
+            padding-bottom: 10px; 
+        }
+        h2 { 
+            color: #5bc0de; 
+            margin-top: 30px; 
+        }
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin: 20px 0; 
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #f2f2f2; 
+        }
+        .alerta { 
+            color: #d9534f; 
+            font-weight: bold; 
+        }
+        .grafico { 
+            max-width: 100%; 
+            height: auto; 
+            margin: 20px 0; 
+        }
+        .sumario { 
+            background-color: #f9f9f9; 
+            padding: 15px; 
+            border-left: 4px solid #5bc0de; 
+        }
+        .footer { 
+            margin-top: 50px; 
+            border-top: 1px solid #ddd; 
+            padding-top: 10px; 
+            font-size: 0.8em; 
+            color: #777; 
+        }
+        .logo {
+            float: right;
+            max-width: 150px;
+            margin-left: 20px;
+        }
+        @media print {
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Relatório de Focos de Queimadas</h1>
+    <p>Data de geração: {{ data_geracao }}</p>
+    
+    <div class="sumario">
+        <h2>Sumário Executivo</h2>
+        <p>Este relatório apresenta uma análise dos focos de queimadas detectados no período de {{ periodo_inicio }} a {{ periodo_fim }}.</p>
+        <p>Total de focos no período: <strong>{{ total_focos }}</strong></p>
+        {% if tendencia %}
+        <p>Tendência: <strong>{{ tendencia }}</strong></p>
+        {% endif %}
+    </div>
+    
+    {% if alertas %}
+    <h2>Alertas</h2>
+    <ul class="alerta">
+        {% for alerta in alertas %}
+        <li>{{ alerta }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    
+    <h2>Série Temporal</h2>
+    {% if graficos.serie_temporal %}
+    <img src="{{ graficos.serie_temporal }}" alt="Série Temporal" class="grafico">
+    {% else %}
+    <p>Gráfico de série temporal não disponível.</p>
+    {% endif %}
+    
+    <div class="page-break"></div>
+    
+    <h2>Distribuição por UF</h2>
+    {% if graficos.focos_por_uf %}
+    <img src="{{ graficos.focos_por_uf }}" alt="Focos por UF" class="grafico">
+    {% else %}
+    <p>Gráfico de distribuição por UF não disponível.</p>
+    {% endif %}
+    
+    {% if focos_por_uf %}
+    <table>
+        <tr>
+            <th>UF</th>
+            <th>Focos</th>
+            <th>Percentual</th>
+        </tr>
+        {% for row in focos_por_uf %}
+        <tr>
+            <td>{{ row.uf }}</td>
+            <td>{{ row.focos }}</td>
+            <td>{{ "%.2f"|format(row.percentual) }}%</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+    
+    <h2>Distribuição por Bioma</h2>
+    {% if graficos.focos_por_bioma %}
+    <img src="{{ graficos.focos_por_bioma }}" alt="Focos por Bioma" class="grafico">
+    {% else %}
+    <p>Gráfico de distribuição por bioma não disponível.</p>
+    {% endif %}
+    
+    {% if focos_por_bioma %}
+    <table>
+        <tr>
+            <th>Bioma</th>
+            <th>Focos</th>
+            <th>Percentual</th>
+        </tr>
+        {% for row in focos_por_bioma %}
+        <tr>
+            <td>{{ row.bioma }}</td>
+            <td>{{ row.focos }}</td>
+            <td>{{ "%.2f"|format(row.percentual) }}%</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+    
+    <div class="footer">
+        <p>Relatório gerado automaticamente pelo Sistema de Monitoramento de Queimadas.</p>
+    </div>
+</body>
+</html>
