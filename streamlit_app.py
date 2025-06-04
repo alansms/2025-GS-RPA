@@ -38,6 +38,20 @@ st.markdown("""
         .st-bx {
             background-color: transparent;
         }
+        /* Estilo para a barra lateral */
+        [data-testid="stSidebar"] {
+            background-color: #fdfdfd;
+        }
+        /* Ajuste de cores para textos e elementos da barra lateral */
+        [data-testid="stSidebar"] [data-testid="stMarkdown"] {
+            color: #333333;
+        }
+        .css-6qob1r.e1fqkh3o3 {
+            background-color: #fdfdfd;
+        }
+        .sidebar .sidebar-content {
+            background-color: #fdfdfd;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -51,9 +65,18 @@ from coleta.utils_coleta import coletar_dados_inpe
 from analise.analise_temporal import gerar_serie_temporal
 from analise.analise_espacial import criar_mapa_focos
 from relatorios.relatorio import main as gerar_relatorio
+from alertas.alertas import gerar_alerta_por_regiao, salvar_alertas
 
-# Criar diretórios necessários
-for dir_path in ['output/logs', 'output/dados_brutos', 'output/dados_limpos', 'output/relatorios']:
+# Criar diretórios necessários logo no início
+output_dirs = [
+    'output/logs',
+    'output/dados_brutos',
+    'output/dados_limpos',
+    'output/relatorios',
+    'output/relatorios/graficos'
+]
+
+for dir_path in output_dirs:
     os.makedirs(dir_path, exist_ok=True)
 
 # Configuração de logging
@@ -129,16 +152,63 @@ with st.sidebar:
         # Botão para gerar relatório
         if st.button("Gerar Relatório"):
             try:
-                relatorio_path = gerar_relatorio(df, "output/relatorios")
-                with open(relatorio_path, "rb") as file:
-                    st.download_button(
-                        "Baixar Relatório",
-                        file,
-                        file_name="relatorio_queimadas.pdf",
-                        mime="application/pdf"
-                    )
+                # Garantir que o diretório existe usando caminho absoluto
+                relatorios_dir = os.path.join(project_root, 'output', 'relatorios')
+                graficos_dir = os.path.join(relatorios_dir, 'graficos')
+
+                # Criar diretórios se não existirem
+                os.makedirs(relatorios_dir, exist_ok=True)
+                os.makedirs(graficos_dir, exist_ok=True)
+
+                with st.spinner('Gerando relatório...'):
+                    relatorio_path = gerar_relatorio(df)  # Removendo o parâmetro output_dir
+
+                    if relatorio_path and os.path.exists(relatorio_path):
+                        with open(relatorio_path, "rb") as file:
+                            if relatorio_path.endswith('.pdf'):
+                                mime = "application/pdf"
+                                ext = "pdf"
+                            else:
+                                mime = "text/html"
+                                ext = "html"
+
+                            st.download_button(
+                                "📄 Baixar Relatório",
+                                file,
+                                file_name=f"relatorio_queimadas.{ext}",
+                                mime=mime,
+                                help="Clique para baixar o relatório"
+                            )
+                            st.success("✅ Relatório gerado com sucesso!")
+                    else:
+                        st.error("❌ Erro: Arquivo do relatório não encontrado")
+
             except Exception as e:
-                st.error(f"Erro ao gerar relatório: {str(e)}")
+                logger.error(f"Erro ao gerar relatório: {str(e)}")
+                st.error(f"❌ Erro ao gerar relatório: {str(e)}")
+
+# Após carregar os dados, antes do layout principal
+if df is not None:
+    # Verificar alertas
+    alertas = gerar_alerta_por_regiao(df)
+    if alertas:
+        st.sidebar.warning("⚠️ Alertas Ativos")
+        with st.sidebar.expander("Ver Alertas", expanded=True):
+            for alerta in alertas:
+                if alerta['nivel'] == 'ALTO':
+                    st.error(f"""
+                        **{alerta['tipo']}: {alerta['local']}**
+                        - Nível: {alerta['nivel']}
+                        - Focos: {alerta['focos']:,}
+                        - Aumento: {alerta['aumento']}%
+                    """)
+                else:
+                    st.warning(f"""
+                        **{alerta['tipo']}: {alerta['local']}**
+                        - Nível: {alerta['nivel']}
+                        - Focos: {alerta['focos']:,}
+                        - Aumento: {alerta['aumento']}%
+                    """)
 
 # Layout principal
 if df is not None and not df.empty:
@@ -163,16 +233,27 @@ if df is not None and not df.empty:
 
     with col1:
         # Gráfico de barras - Top 10 Estados
-        top_ufs = df.groupby('uf').size().nlargest(10)
-        fig_uf = px.bar(top_ufs, title="Top 10 Estados com Mais Focos")
+        top_ufs = df.groupby('uf').size().sort_values(ascending=True)
+        fig_uf = px.bar(
+            x=top_ufs.values,
+            y=top_ufs.index,
+            orientation='h',
+            title="Estados com Mais Focos",
+            labels={'x': 'Número de Focos', 'y': 'Estado'}
+        )
+        fig_uf.update_layout(showlegend=False)
         st.plotly_chart(fig_uf, use_container_width=True)
 
     with col2:
         # Gráfico de pizza - Biomas
         focos_bioma = df.groupby('bioma').size()
-        fig_bioma = px.pie(values=focos_bioma.values,
-                          names=focos_bioma.index,
-                          title="Distribuição por Bioma")
+        fig_bioma = px.pie(
+            values=focos_bioma.values,
+            names=focos_bioma.index,
+            title="Distribuição por Bioma",
+            hole=0.3
+        )
+        fig_bioma.update_traces(textposition='inside', textinfo='percent+label')
         st.plotly_chart(fig_bioma, use_container_width=True)
 
     # Mapa de calor
