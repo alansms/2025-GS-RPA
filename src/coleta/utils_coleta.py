@@ -40,35 +40,45 @@ COORDENADAS_UF = {
 def coletar_dados_inpe(data_inicio: str, data_fim: str) -> pd.DataFrame:
     """
     Simula a coleta de dados de focos de queimada para demonstração.
+    Garante que todas as UFs estejam presentes no conjunto de dados.
     """
     try:
         datas = pd.date_range(start=data_inicio, end=data_fim)
-        ufs = list(COORDENADAS_UF.keys())
+        ufs = sorted(list(COORDENADAS_UF.keys()))  # Garante ordem consistente
         biomas = ['Mata Atlântica', 'Cerrado', 'Amazônia', 'Caatinga', 'Pampa', 'Pantanal']
 
         dados = []
         for data in datas:
-            # Gerar pontos para cada UF
+            # Garante pontos mínimos para cada UF
             for uf in ufs:
                 coords = COORDENADAS_UF[uf]
-                n_pontos = np.random.randint(2, 8)  # Reduzindo número de pontos por UF
+                # Garante pelo menos 2 pontos por UF para visualização
+                n_pontos = max(2, np.random.randint(2, 8))
 
                 for _ in range(n_pontos):
                     # Gerar coordenadas dentro dos limites da UF
                     lat = np.random.uniform(coords['lat'][0], coords['lat'][1])
                     lon = np.random.uniform(coords['lon'][0], coords['lon'][1])
 
-                    # Atribuir bioma de acordo com a região
-                    if uf in ['AM', 'AC', 'RR', 'RO', 'PA', 'AP', 'TO', 'MA']:
+                    # Atribuir bioma de acordo com a região e localização
+                    bioma = None
+
+                    # Amazônia Legal
+                    if uf in ['AM', 'AC', 'RR', 'RO', 'PA', 'AP', 'TO', 'MT', 'MA']:
                         bioma = 'Amazônia'
+                    # Caatinga
                     elif uf in ['PI', 'CE', 'RN', 'PB', 'PE', 'AL', 'SE', 'BA']:
                         bioma = 'Caatinga'
-                    elif uf in ['GO', 'MT', 'MS', 'MG', 'SP']:
+                    # Cerrado Central
+                    elif uf in ['GO', 'DF', 'MG', 'SP', 'MS']:
                         bioma = 'Cerrado'
+                    # Sul
                     elif uf in ['PR', 'SC', 'RS']:
-                        bioma = np.random.choice(['Mata Atlântica', 'Pampa'])
-                    elif uf == 'MS':
-                        bioma = 'Pantanal'
+                        bioma = 'Mata Atlântica' if np.random.random() > 0.3 else 'Pampa'
+                    # Pantanal
+                    elif uf in ['MT', 'MS']:
+                        bioma = 'Pantanal' if np.random.random() > 0.7 else 'Cerrado'
+                    # Costa
                     else:
                         bioma = 'Mata Atlântica'
 
@@ -81,7 +91,15 @@ def coletar_dados_inpe(data_inicio: str, data_fim: str) -> pd.DataFrame:
                     })
 
         df = pd.DataFrame(dados)
-        logger.info(f"Dados gerados com sucesso: {len(df)} registros")
+
+        # Validação final para garantir que todas as UFs estão presentes
+        ufs_presentes = set(df['uf'].unique())
+        if len(ufs_presentes) != len(COORDENADAS_UF):
+            logger.warning(f"Algumas UFs estão faltando. Encontradas: {len(ufs_presentes)}/{len(COORDENADAS_UF)}")
+            ufs_faltantes = set(COORDENADAS_UF.keys()) - ufs_presentes
+            logger.warning(f"UFs faltantes: {ufs_faltantes}")
+
+        logger.info(f"Dados gerados com sucesso: {len(df)} registros em {len(df['uf'].unique())} UFs")
         return df
 
     except Exception as e:
