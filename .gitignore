@@ -28,9 +28,11 @@ output/dados_brutos/*
 output/dados_limpos/*
 output/logs/*
 output/relatorios/*
+output/alertas/*
 !output/dados_brutos/.gitkeep
 !output/dados_limpos/.gitkeep
 !output/logs/.gitkeep
+!output/alertas/.gitkeep
 
 # Arquivos específicos para ignorar
 *.zip

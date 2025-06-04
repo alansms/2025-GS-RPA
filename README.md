@@ -75,6 +75,7 @@ src/
 output/               # Dados gerados
 ├── dados_brutos/     # Dados coletados
 ├── dados_limpos/     # Dados processados
+├── alertas/         # Arquivos HTML de alertas
 ├── relatorios/       # Relatórios gerados
 └── logs/            # Logs do sistema
 ```
