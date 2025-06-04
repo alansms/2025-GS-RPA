@@ -37,8 +37,7 @@ streamlit run streamlit_app.py
 
 ### Online
 
-O projeto está disponível online através do Streamlit Cloud:
-[Link para o aplicativo](https://2025-gs-rpa.streamlit.app/)
+O projeto está disponível online através do Streamlit Cloud: [Link para o aplicativo](https://2025-gs-rpa.streamlit.app/)
 
 ## 📊 Funcionalidades
 
