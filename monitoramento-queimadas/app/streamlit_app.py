@@ -43,7 +43,7 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger('monitoramento_queimadas.streamlit')
+logger = logging.getLogger('monitoramento-queimadas.streamlit')
 
 logger.debug("Iniciando aplicação Streamlit")
 
