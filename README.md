@@ -80,6 +80,8 @@ output/               # Dados gerados
 └── logs/            # Logs do sistema
 ```
 
+![Retatórios](https://raw.githubusercontent.com/alansms/2025-GS-RPA/main/favicons-4/%20imag-1.png)
+
 ## 📝 Requisitos do Sistema
 
 - Python 3.8 ou superior
