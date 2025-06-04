@@ -80,7 +80,7 @@ output/               # Dados gerados
 └── logs/            # Logs do sistema
 ```
 
-![Retatórios](https://raw.githubusercontent.com/alansms/2025-GS-RPA/main/favicons-4/%20imag-1.png)
+![Retatórios](https://github.com/alansms/2025-GS-RPA/blob/main/favicons-4/imag-1.png)
 
 ## 📝 Requisitos do Sistema
 
