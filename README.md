@@ -102,7 +102,14 @@ apt-get update && apt-get install -y \
 
 ## 👥 Equipe
 
-- Alan Santos (RM: 353687)
+André Rovai Andrade Xavier Junior
+RM555848@fiap.com.br
+
+Alan de Souza Maximiano da Silva
+RM557088@fiap.com.br
+
+Leonardo Zago Garcia Ferreira
+RM558691@fiap.com.br
 
 ## 📄 Licença
 
