@@ -11,6 +11,30 @@ from glob import glob
 import folium
 from streamlit_folium import folium_static
 
+# Configuração da página Streamlit
+st.set_page_config(
+    page_title="Monitoramento de Queimadas",
+    page_icon="🔥",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Configurar tema e estilos
+st.markdown("""
+    <style>
+        .stApp {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .logo-container {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Adicionar diretório src ao PYTHONPATH
 project_root = os.path.dirname(os.path.abspath(__file__))
 src_path = os.path.join(project_root, "src")
@@ -37,14 +61,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger('queimadas')
 
-# Configuração da página Streamlit
-st.set_page_config(
-    page_title="Monitoramento de Queimadas",
-    page_icon="🔥",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
 # Título e descrição
 st.title("Sistema de Monitoramento de Queimadas")
 st.markdown("""
@@ -54,10 +70,13 @@ interativas e análises detalhadas por estado e bioma.
 
 # Sidebar
 with st.sidebar:
-    # Adicionar logo da FIAP
-    logo_path = "Fiap-logo-branco.jpg"
-    if os.path.exists(logo_path):
-        st.image(logo_path, use_column_width=True)
+    # Logo da FIAP
+    st.markdown("<div class='logo-container'>", unsafe_allow_html=True)
+    logo_paths = ["Fiap-logo-branco.jpg", "logo_fiap.jpg"]
+    logo_path = next((path for path in logo_paths if os.path.exists(path)), None)
+    if logo_path:
+        st.image(logo_path, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     st.title("Filtros")
 

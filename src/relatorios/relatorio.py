@@ -1,22 +1,16 @@
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime
 import os
 import logging
+import weasyprint
+from jinja2 import Template
 
 logger = logging.getLogger('queimadas.relatorios')
 
 def main(df: pd.DataFrame, output_dir: str = "output/relatorios") -> str:
     """
-    Gera um relatório em PDF com as análises dos focos de queimada.
-
-    Args:
-        df (pd.DataFrame): DataFrame com os dados de focos
-        output_dir (str): Diretório onde salvar o relatório
-
-    Returns:
-        str: Caminho do arquivo PDF gerado
+    Gera um relatório com as análises dos focos de queimada.
     """
     try:
         # Criar diretório se não existir
@@ -24,120 +18,136 @@ def main(df: pd.DataFrame, output_dir: str = "output/relatorios") -> str:
 
         # Nome do arquivo
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = os.path.join(output_dir, f"relatorio_{timestamp}.html")
+        html_file = os.path.join(output_dir, f"relatorio_{timestamp}.html")
+        pdf_file = os.path.join(output_dir, f"relatorio_{timestamp}.pdf")
 
-        # Gerar gráficos
-        serie = df.groupby('data').size().reset_index(name='focos')
-        fig_temporal = px.line(serie, x='data', y='focos',
-                             title="Evolução dos Focos de Queimada")
+        # Preparar dados para o relatório
+        total_focos = len(df)
+        media_diaria = total_focos / len(df['data'].unique())
+        estados_afetados = len(df['uf'].unique())
+        biomas_afetados = len(df['bioma'].unique())
 
-        top_ufs = df.groupby('uf').size().nlargest(10)
-        fig_ufs = px.bar(top_ufs, title="Top 10 Estados com Mais Focos")
+        # Gerar estatísticas por UF e bioma
+        stats_uf = df.groupby('uf').size().sort_values(ascending=False)
+        stats_bioma = df.groupby('bioma').size().sort_values(ascending=False)
 
-        focos_bioma = df.groupby('bioma').size()
-        fig_bioma = px.pie(values=focos_bioma.values,
-                          names=focos_bioma.index,
-                          title="Distribuição por Bioma")
+        # Criar tabela HTML para estatísticas
+        tabela_uf = "<table><tr><th>UF</th><th>Focos</th></tr>"
+        for uf, focos in stats_uf.items():
+            tabela_uf += f"<tr><td>{uf}</td><td>{focos}</td></tr>"
+        tabela_uf += "</table>"
 
-        # Gerar HTML
-        html_content = f"""<!DOCTYPE html>
+        tabela_bioma = "<table><tr><th>Bioma</th><th>Focos</th></tr>"
+        for bioma, focos in stats_bioma.items():
+            tabela_bioma += f"<tr><td>{bioma}</td><td>{focos}</td></tr>"
+        tabela_bioma += "</table>"
+
+        # Template HTML com estilos embutidos
+        html_content = """
+        <!DOCTYPE html>
         <html lang="pt-BR">
             <head>
                 <meta charset="UTF-8">
                 <title>Relatório de Queimadas</title>
                 <style>
-                    body {{ 
-                        font-family: Arial, sans-serif; 
-                        margin: 40px;
+                    body { 
+                        font-family: Arial, sans-serif;
                         line-height: 1.6;
-                    }}
-                    h1 {{ 
                         color: #333;
+                        max-width: 1000px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }
+                    h1, h2 { color: #444; }
+                    .header {
                         text-align: center;
                         margin-bottom: 30px;
-                    }}
-                    .metrics {{
-                        display: flex;
-                        justify-content: space-between;
+                    }
+                    .metrics {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 20px;
                         margin: 20px 0;
-                        flex-wrap: wrap;
-                    }}
-                    .metric {{
-                        text-align: center;
-                        padding: 20px;
+                    }
+                    .metric {
                         background: #f5f5f5;
+                        padding: 15px;
                         border-radius: 8px;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                        flex: 1;
-                        margin: 10px;
-                        min-width: 200px;
-                    }}
-                    .metric h3 {{
-                        margin: 0;
-                        color: #666;
-                    }}
-                    .metric p {{
+                        text-align: center;
+                    }
+                    .metric h3 { margin: 0; color: #666; }
+                    .metric p { 
                         margin: 10px 0 0;
                         font-size: 24px;
                         font-weight: bold;
-                        color: #333;
-                    }}
-                    .chart {{
-                        margin: 30px 0;
-                        padding: 20px;
-                        background: white;
-                        border-radius: 8px;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    }}
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                    }
+                    th, td {
+                        padding: 12px;
+                        text-align: left;
+                        border-bottom: 1px solid #ddd;
+                    }
+                    th { background-color: #f5f5f5; }
+                    tr:hover { background-color: #f9f9f9; }
                 </style>
             </head>
             <body>
-                <h1>Relatório de Monitoramento de Queimadas</h1>
-                <p style="text-align: center;">
-                    Período: {df['data'].min().strftime('%d/%m/%Y')} a {df['data'].max().strftime('%d/%m/%Y')}
-                </p>
+                <div class="header">
+                    <h1>Relatório de Monitoramento de Queimadas</h1>
+                    <p>Período: {inicio} a {fim}</p>
+                </div>
                 
                 <div class="metrics">
                     <div class="metric">
                         <h3>Total de Focos</h3>
-                        <p>{len(df):,}</p>
+                        <p>{total}</p>
                     </div>
                     <div class="metric">
                         <h3>Média Diária</h3>
-                        <p>{len(df)/len(serie):.1f}</p>
+                        <p>{media:.1f}</p>
                     </div>
                     <div class="metric">
                         <h3>Estados Afetados</h3>
-                        <p>{len(df['uf'].unique())}</p>
+                        <p>{estados}</p>
                     </div>
                     <div class="metric">
                         <h3>Biomas Afetados</h3>
-                        <p>{len(df['bioma'].unique())}</p>
+                        <p>{biomas}</p>
                     </div>
                 </div>
-                
-                <div class="chart">
-                    {fig_temporal.to_html(include_plotlyjs='cdn', full_html=False)}
-                </div>
-                
-                <div class="chart">
-                    {fig_ufs.to_html(include_plotlyjs='cdn', full_html=False)}
-                </div>
-                
-                <div class="chart">
-                    {fig_bioma.to_html(include_plotlyjs='cdn', full_html=False)}
-                </div>
+
+                <h2>Distribuição por Estado</h2>
+                {tabela_uf}
+
+                <h2>Distribuição por Bioma</h2>
+                {tabela_bioma}
             </body>
         </html>
-        """
+        """.format(
+            inicio=df['data'].min().strftime('%d/%m/%Y'),
+            fim=df['data'].max().strftime('%d/%m/%Y'),
+            total=total_focos,
+            media=media_diaria,
+            estados=estados_afetados,
+            biomas=biomas_afetados,
+            tabela_uf=tabela_uf,
+            tabela_bioma=tabela_bioma
+        )
 
-        # Salvar relatório
-        with open(output_file, 'w', encoding='utf-8') as f:
+        # Salvar HTML
+        with open(html_file, 'w', encoding='utf-8') as f:
             f.write(html_content)
 
-        logger.info(f"Relatório gerado com sucesso: {output_file}")
-        return output_file
+        # Gerar PDF
+        weasyprint.HTML(string=html_content).write_pdf(pdf_file)
+
+        logger.info(f"Relatório gerado com sucesso: HTML={html_file}, PDF={pdf_file}")
+        return pdf_file
 
     except Exception as e:
         logger.error(f"Erro ao gerar relatório: {str(e)}")
-        return None
+        return html_file  # Retorna HTML em caso de erro no PDF
