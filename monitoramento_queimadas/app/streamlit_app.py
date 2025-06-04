@@ -30,12 +30,16 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from coleta.utils_coleta import coletar_dados_inpe
 
+# Criar diretório de logs se não existir
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output', 'logs')
+os.makedirs(log_dir, exist_ok=True)
+
 # Configuração de logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output/logs/streamlit_app.log')),
+        logging.FileHandler(os.path.join(log_dir, 'streamlit_app.log')),
         logging.StreamHandler(sys.stdout)
     ]
 )

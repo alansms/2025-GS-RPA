@@ -1,0 +1,11 @@
+README.md
+setup.py
+monitoramento-queimadas/__init__.py
+monitoramento-queimadas/gerar_dados_teste.py
+monitoramento-queimadas/main.py
+monitoramento-queimadas/test_report.py
+monitoramento_queimadas.egg-info/PKG-INFO
+monitoramento_queimadas.egg-info/SOURCES.txt
+monitoramento_queimadas.egg-info/dependency_links.txt
+monitoramento_queimadas.egg-info/requires.txt
+monitoramento_queimadas.egg-info/top_level.txt
