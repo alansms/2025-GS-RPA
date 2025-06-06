@@ -91,10 +91,10 @@ output/               # Dados gerados
 Para sistemas Linux, instale as dependências do sistema:
 ```bash
 apt-get update && apt-get install -y \
-    libpango1.0-0 \
+    libpango-1.0-0 \
     libharfbuzz0b \
     libpangoft2-1.0-0 \
-    libffi7 \
+    libffi8 \
     libjpeg-dev \
     libopenjp2-7-dev \
     libcairo2
