@@ -4,7 +4,7 @@ Sistema de monitoramento de queimadas desenvolvido como projeto para a Global So
 
 ## 🔥 Sobre o Projeto
 
-🎥 [Assista à demonstração do projeto](https://youtu.be/_-Uonbq653g)
+🎥 [Assista à demonstração do projeto](https://youtu.be/Pndg4W6J_zc)
 
 Este projeto consiste em um sistema de monitoramento de queimadas que coleta, processa e analisa dados de focos de incêndio no Brasil. O sistema inclui:
 
